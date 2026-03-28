@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>ESP32-CAM High FPS Stream</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 {
+            color: white;
+            margin: 20px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        #stream-container {
+            background: white;
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 95%;
+        }
+
+        #stream {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            display: block;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #latency {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<h1>🚀 ESP32-CAM High Performance Stream</h1>
+
+<div class="stats">
+    <div class="stat-card">
+        <div class="stat-label">Camera FPS</div>
+        <div class="stat-value" id="camera-fps">0</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Display FPS</div>
+        <div class="stat-value" id="display-fps">0</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Frame Size</div>
+        <div class="stat-value" id="frame-size">0 KB</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Latency</div>
+        <div class="stat-value" id="latency">0 ms</div>
+    </div>
+</div>
+
+<div id="stream-container">
+    <img id="stream" src="/api/v1/frame/stream" alt="Loading...">
+</div>
+
+<div class="controls">
+    <button onclick="sendCmd('LED_ON', 1)">💡 LED ON</button>
+    <button onclick="sendCmd('LED_OFF', 0)">🔦 LED OFF</button>
+    <button onclick="sendCmd('SNAPSHOT', 1)">📸 Snapshot</button>
+</div>
+
+<script>
+    let displayFrameCount = 0;
+    let lastDisplayTime = Date.now();
+    let lastFrameTime = Date.now();
+
+    const img = document.getElementById('stream');
+
+    // Calculate display FPS
+    img.onload = function () {
+        displayFrameCount++;
+        const now = Date.now();
+        const elapsed = (now - lastDisplayTime) / 1000;
+
+        // Update latency
+        const latency = now - lastFrameTime;
+        document.getElementById('latency').textContent = latency + ' ms';
+        lastFrameTime = now;
+
+        if (elapsed >= 1) {
+            const fps = Math.round(displayFrameCount / elapsed);
+            document.getElementById('display-fps').textContent = fps;
+            displayFrameCount = 0;
+            lastDisplayTime = now;
+        }
+    };
+
+    // Get server stats
+    async function updateStats() {
+        try {
+            const response = await fetch('api/v1/frame/status');
+            const data = await response.json();
+            document.getElementById('camera-fps').textContent = data.fps.toFixed(1);
+            document.getElementById('frame-size').textContent = data.avg_frame_size_kb.toFixed(1) + ' KB';
+        } catch (error) {
+            console.error('Stats error:', error);
+        }
+    }
+
+    setInterval(updateStats, 1000);
+
+    async function sendCmd(msg, val) {
+        try {
+            await fetch(`/api/v1/animal?message=${msg}&value=${val}`, {
+                method: 'POST'
+            });
+        } catch (error) {
+            console.error('Command error:', error);
+        }
+    }
+
+    // Preload image for faster loading
+    img.src = '/api/v1/frame/stream?' + Date.now();
+</script>
+</body>
+</html>
