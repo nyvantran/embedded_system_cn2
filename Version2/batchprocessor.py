@@ -16,7 +16,8 @@ class BatchProcessor:
     def __init__(self, batch_size: int = 8, max_wait_time: float = 0.05):
         self.batch_size = batch_size
         self.max_wait_time = max_wait_time
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        # Force CPU to avoid CUDA NMS incompatibility issues on Windows
+        self.device = 'cuda'
         self.logger = logging.getLogger("BatchProcessor")
         self.logger.info(f"Loading YOLOv5 model on {self.device}...")
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m', pretrained=True)
@@ -112,7 +113,8 @@ class BatchProcessor:
     def _extract_detections(self, predictions, confidence_threshold: float) -> List[Dict]:
         detections = []
         for *xyxy, conf, cls in predictions:
-            if int(cls) == 19 and conf > confidence_threshold:
+            # Class 0 is 'person' in COCO dataset
+            if int(cls) == 0 and conf > confidence_threshold:
                 x1, y1, x2, y2 = map(int, xyxy)
                 detections.append(
                     {'bbox': (x1, y1, x2, y2), 'center': ((x1 + x2) // 2, (y1 + y2) // 2), 'confidence': float(conf),

@@ -71,6 +71,14 @@ class MultiCameraSurveillanceSystem:
             return worker.get_processed_frame()
         return None
 
+    def process_external_frame(self, camera_id: str, frame: np.ndarray):
+        """Tiếp nhận frame từ API bên ngoài và đưa vào quy trình xử lý."""
+        worker = self.camera_workers.get(camera_id)
+        if worker:
+            worker.process_incoming_frame(frame)
+            return True
+        return False
+
     def get_all_statistics(self):
         """Lấy thống kê của tất cả camera."""
         stats = {}

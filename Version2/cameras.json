@@ -2,7 +2,7 @@
   "cameras": [
     {
       "camera_id": "CAM001",
-      "source": "/run/media/tranmanhduy/TRANMANHDUY/ptithcm/htn/Version2/demonext.mp4",
+      "source": "API",
       "position": "Position_1",
       "enable_recording": true,
       "recording_path": "./recordings",

@@ -30,6 +30,15 @@ class ImprovedCameraWorker(threading.Thread):
     def run(self):
         self.running = True
         self.logger.info(f"Starting camera {self.config.camera_id}")
+        
+        # Nếu nguồn là API, luồng này chỉ đóng vai trò duy trì trạng thái
+        if self.config.source == "API":
+            self.logger.info(f"Camera {self.config.camera_id} is in API mode. Waiting for frames via POST.")
+            while self.running:
+                time.sleep(1)
+            self.cleanup()
+            return
+
         while self.running:
             if self.cap is None or not self.cap.isOpened():
                 self._open_video_source()
@@ -50,17 +59,23 @@ class ImprovedCameraWorker(threading.Thread):
                     self.logger.info(f"End of video or stream error for {self.config.camera_id}.")
                     self.is_active = False
                     break
-            self.frame_count += 1
-            with self.latest_frame_lock:
-                self.latest_frame = frame.copy()
-            metadata = {
-                'frame_id': self.frame_count,
-                'timestamp': time.time(),
-                'confidence_threshold': self.config.confidence_threshold,
-            }
-            self.batch_processor.add_frame(self.config.camera_id, frame, metadata)
+            
+            self.process_incoming_frame(frame)
             time.sleep(1 / 30)
         self.cleanup()
+
+    def process_incoming_frame(self, frame: np.ndarray):
+        """Xử lý frame (dùng cho cả luồng nội bộ và API bên ngoài)."""
+        self.frame_count += 1
+        with self.latest_frame_lock:
+            self.latest_frame = frame.copy()
+        
+        metadata = {
+            'frame_id': self.frame_count,
+            'timestamp': time.time(),
+            'confidence_threshold': self.config.confidence_threshold,
+        }
+        self.batch_processor.add_frame(self.config.camera_id, frame, metadata)
 
     def _open_video_source(self):
         try:
