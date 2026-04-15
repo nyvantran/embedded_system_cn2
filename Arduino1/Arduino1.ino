@@ -6,8 +6,8 @@
 
 // ==================== CẤU HÌNH ====================
 // Thông tin WiFi
-const char* ssid = "NHA TRO HANH PHUC";
-const char* password = "13681368";
+const char* ssid = "PTIT.HCM_SV";
+const char* password = "";
 
 // Cấu hình I2C cho ESP32-C3
 #define I2C_SDA 8
@@ -19,7 +19,7 @@ const char* password = "13681368";
 #define LCD_ROWS 4
 
 // API endpoint - thay bằng API của bạn
-const char* apiEndpoint = "http://192.168.1.26:8000/api/v1/animal";
+const char* apiEndpoint = "http://10.251.13.216:5000///api/count/CAMM001";
 
 // Thời gian cập nhật (ms)
 const unsigned long updateInterval = 1000;  // 10 giây
@@ -64,8 +64,9 @@ void setup() {
   Serial.println(ssid);
 
   // Kết nối WiFi
-  WiFi.setTxPower(WIFI_POWER_8_5dBm);
   WiFi.begin(ssid, password);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+
 
 
   int dotCount = 0;
