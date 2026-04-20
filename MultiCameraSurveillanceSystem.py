@@ -59,7 +59,7 @@ class MultiCameraSurveillanceSystem:
                     if worker and worker.is_active:
                         frame = worker.get_latest_frame()
                         if frame is not None:
-                            worker.process_detections(detections, frame)
+                            worker.process_detections(detections, frame, batch_result.processing_time)
             except Exception as e:
                 self.logger.error(f"Error processing batch results: {e}", exc_info=True)
                 time.sleep(0.01)

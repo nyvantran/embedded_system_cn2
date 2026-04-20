@@ -1,197 +1,221 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
-    <title>ESP32-CAM High FPS Stream</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-        }
-
-        h1 {
-            color: white;
-            margin: 20px 0;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-        }
-
-        #stream-container {
-            background: white;
-            border-radius: 15px;
-            padding: 10px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            max-width: 95%;
-        }
-
-        #stream {
-            width: 100%;
-            height: auto;
-            border-radius: 10px;
-            display: block;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-            max-width: 800px;
-            width: 100%;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: bold;
-            color: #667eea;
-            margin: 10px 0;
-        }
-
-        .stat-label {
-            color: #666;
-            font-size: 14px;
-            text-transform: uppercase;
-        }
-
-        .controls {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin: 20px 0;
-        }
-
-        button {
-            padding: 12px 24px;
-            font-size: 16px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            background: white;
-            color: #667eea;
-            font-weight: bold;
-            transition: all 0.3s;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        #latency {
-            color: #4CAF50;
-            font-weight: bold;
-        }
-    </style>
+    <title>Surveillance Dashboard — Giám Sát Đa Camera</title>
+    <meta name="description" content="Hệ thống giám sát đa camera thời gian thực với nhận diện đối tượng">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<h1>🚀 ESP32-CAM High Performance Stream</h1>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="url(#grad1)"/>
+                    <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs><linearGradient id="grad1" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
+                </svg>
+                <h1>Surveillance<span>Pro</span></h1>
+            </div>
+        </div>
+        <div class="header-center">
+            <div class="status-badge" id="system-status">
+                <span class="status-dot"></span>
+                <span>Đang hoạt động</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="clock" id="clock"></div>
+        </div>
+    </header>
 
-<div class="stats">
-    <div class="stat-card">
-        <div class="stat-label">Camera FPS</div>
-        <div class="stat-value" id="camera-fps">0</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">Display FPS</div>
-        <div class="stat-value" id="display-fps">0</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">Frame Size</div>
-        <div class="stat-value" id="frame-size">0 KB</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">Latency</div>
-        <div class="stat-value" id="latency">0 ms</div>
-    </div>
-</div>
+    <!-- Stats Bar -->
+    <section class="stats-bar">
+        <div class="stat-card" id="stat-cameras">
+            <div class="stat-icon cameras-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-value" id="total-cameras">0</span>
+                <span class="stat-label">Camera</span>
+            </div>
+        </div>
+        <div class="stat-card highlight-card" id="stat-count">
+            <div class="stat-icon count-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-value" id="total-count">0</span>
+                <span class="stat-label">Tổng đã phát hiện</span>
+            </div>
+        </div>
+        <div class="stat-card" id="stat-active">
+            <div class="stat-icon active-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-value" id="active-tracks">0</span>
+                <span class="stat-label">Đang theo dõi</span>
+            </div>
+        </div>
+        <div class="stat-card" id="stat-fps">
+            <div class="stat-icon fps-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-value" id="total-frames">0</span>
+                <span class="stat-label">Frames</span>
+            </div>
+        </div>
+    </section>
 
-<div id="stream-container">
-    <img id="stream" src="/api/v1/frame/stream" alt="Loading...">
-</div>
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Camera Grid -->
+        <section class="camera-section">
+            <div class="section-header">
+                <h2>📹 Camera Feeds</h2>
+                <div class="section-actions">
+                    <button class="btn-reset" id="btn-reset" title="Reset đếm">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                        <span>Reset đếm</span>
+                    </button>
+                    <button class="btn-icon" id="toggle-layout" title="Đổi bố cục">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="camera-grid" id="camera-grid">
+                {% for cam_id in camera_ids %}
+                <div class="camera-card" id="cam-card-{{ cam_id }}">
+                    <div class="camera-header">
+                        <div class="camera-label">
+                            <span class="cam-dot"></span>
+                            <span>{{ cam_id }}</span>
+                        </div>
+                        <div class="camera-badge" id="badge-{{ cam_id }}">LIVE</div>
+                    </div>
+                    <div class="camera-feed">
+                        <img src="/video_feed/{{ cam_id }}" alt="Camera {{ cam_id }}" id="feed-{{ cam_id }}">
+                        <div class="camera-overlay">
+                            <div class="overlay-stat highlight-overlay">
+                                <span class="overlay-label">Đã phát hiện</span>
+                                <span class="overlay-value" id="overlay-count-{{ cam_id }}">0</span>
+                            </div>
+                            <div class="overlay-stat">
+                                <span class="overlay-label">Đang theo dõi</span>
+                                <span class="overlay-value" id="overlay-tracks-{{ cam_id }}">0</span>
+                            </div>
+                            <div class="overlay-stat">
+                                <span class="overlay-label">Input FPS</span>
+                                <span class="overlay-value" id="overlay-fps-in-{{ cam_id }}">0</span>
+                            </div>
+                            <div class="overlay-stat">
+                                <span class="overlay-label">Output FPS</span>
+                                <span class="overlay-value" id="overlay-fps-out-{{ cam_id }}">0</span>
+                            </div>
+                            <div class="overlay-stat">
+                                <span class="overlay-label">Model Time</span>
+                                <span class="overlay-value" id="overlay-model-{{ cam_id }}">0 ms</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
 
-<div class="controls">
-    <button onclick="sendCmd('LED_ON', 1)">💡 LED ON</button>
-    <button onclick="sendCmd('LED_OFF', 0)">🔦 LED OFF</button>
-    <button onclick="sendCmd('SNAPSHOT', 1)">📸 Snapshot</button>
-</div>
-
-<script>
-    let displayFrameCount = 0;
-    let lastDisplayTime = Date.now();
-    let lastFrameTime = Date.now();
-
-    const img = document.getElementById('stream');
-
-    // Calculate display FPS
-    img.onload = function () {
-        displayFrameCount++;
-        const now = Date.now();
-        const elapsed = (now - lastDisplayTime) / 1000;
-
-        // Update latency
-        const latency = now - lastFrameTime;
-        document.getElementById('latency').textContent = latency + ' ms';
-        lastFrameTime = now;
-
-        if (elapsed >= 1) {
-            const fps = Math.round(displayFrameCount / elapsed);
-            document.getElementById('display-fps').textContent = fps;
-            displayFrameCount = 0;
-            lastDisplayTime = now;
+    <script>
+        // === Clock ===
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clock').textContent = `${h}:${m}:${s}`;
         }
-    };
+        setInterval(updateClock, 1000);
+        updateClock();
 
-    // Get server stats
-    async function updateStats() {
-        try {
-            const response = await fetch('api/v1/frame/status');
-            const data = await response.json();
-            document.getElementById('camera-fps').textContent = data.fps.toFixed(1);
-            document.getElementById('frame-size').textContent = data.avg_frame_size_kb.toFixed(1) + ' KB';
-        } catch (error) {
-            console.error('Stats error:', error);
+        // === Fetch Stats ===
+        let prevCount = 0;
+        async function fetchStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                let totalActive = 0;
+                let totalCount = 0;
+                let totalFrames = 0;
+                let cameraCount = 0;
+                for (const [camId, stats] of Object.entries(data)) {
+                    cameraCount++;
+                    totalActive += stats.active_tracks || 0;
+                    totalCount += stats.total_count || 0;
+                    totalFrames += stats.frame_count || 0;
+                    const countEl = document.getElementById(`overlay-count-${camId}`);
+                    if (countEl) countEl.textContent = stats.total_count || 0;
+                    const tracksEl = document.getElementById(`overlay-tracks-${camId}`);
+                    if (tracksEl) tracksEl.textContent = stats.active_tracks || 0;
+                    
+                    const fpsInEl = document.getElementById(`overlay-fps-in-${camId}`);
+                    if (fpsInEl) fpsInEl.textContent = stats.input_fps || 0;
+
+                    const fpsOutEl = document.getElementById(`overlay-fps-out-${camId}`);
+                    if (fpsOutEl) fpsOutEl.textContent = stats.output_fps || 0;
+                    
+                    const modelEl = document.getElementById(`overlay-model-${camId}`);
+                    if (modelEl) modelEl.textContent = `${stats.model_time || 0} ms`;
+
+                    const badge = document.getElementById(`badge-${camId}`);
+                    if (badge) {
+                        badge.textContent = stats.is_active ? 'LIVE' : 'OFFLINE';
+                        badge.className = `camera-badge ${stats.is_active ? '' : 'offline'}`;
+                    }
+                }
+                document.getElementById('total-cameras').textContent = cameraCount;
+                document.getElementById('total-count').textContent = totalCount;
+                document.getElementById('active-tracks').textContent = totalActive;
+                document.getElementById('total-frames').textContent = totalFrames.toLocaleString();
+                // Pulse khi có đối tượng mới
+                if (totalCount > prevCount) {
+                    document.getElementById('stat-count').classList.add('pulse');
+                    setTimeout(() => document.getElementById('stat-count').classList.remove('pulse'), 600);
+                }
+                prevCount = totalCount;
+            } catch (e) {
+                console.error('Error fetching stats:', e);
+            }
         }
-    }
+        setInterval(fetchStats, 1000);
+        fetchStats();
 
-    setInterval(updateStats, 1000);
+        // === Reset ===
+        document.getElementById('btn-reset').addEventListener('click', async () => {
+            if (!confirm('Bạn có chắc muốn reset bộ đếm?')) return;
+            try {
+                const res = await fetch('/api/reset', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    prevCount = 0;
+                    document.getElementById('stat-count').classList.add('pulse');
+                    setTimeout(() => document.getElementById('stat-count').classList.remove('pulse'), 600);
+                }
+            } catch (e) {
+                console.error('Error resetting:', e);
+            }
+        });
 
-    async function sendCmd(msg, val) {
-        try {
-            await fetch(`/api/v1/animal?message=${msg}&value=${val}`, {
-                method: 'POST'
-            });
-        } catch (error) {
-            console.error('Command error:', error);
-        }
-    }
-
-    // Preload image for faster loading
-    img.src = '/api/v1/frame/stream?' + Date.now();
-</script>
+        // === Toggle Layout ===
+        let gridLayout = 'grid';
+        document.getElementById('toggle-layout').addEventListener('click', () => {
+            const grid = document.getElementById('camera-grid');
+            gridLayout = gridLayout === 'grid' ? 'single' : 'grid';
+            grid.className = `camera-grid layout-${gridLayout}`;
+        });
+    </script>
 </body>
 </html>

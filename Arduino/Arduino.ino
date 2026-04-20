@@ -5,11 +5,11 @@
 #include "soc/rtc_cntl_reg.h"
 
 // WiFi credentials
-const char* ssid = "PTIT.HCM_SV";
-const char* password = "";
+const char* ssid = "NHA TRO HANH PHUC";
+const char* password = "13681368";
 
 // Server API endpoint
-const char* serverUrl = "http://10.251.13.216:5000//api/frame/CAM001";
+const char* serverUrl = "http://192.168.1.10:5000//api/frame/CAM001";
 
 // Camera pins
 #define PWDN_GPIO_NUM  32

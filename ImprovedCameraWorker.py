@@ -27,6 +27,17 @@ class ImprovedCameraWorker(threading.Thread):
         self.is_active = True
         self.is_video_file = isinstance(config.source, str) and not config.source.isdigit()
 
+        # FPS and processing time tracking
+        self.fps_start_time = time.time()
+        self.fps_frame_count = 0
+        self.current_input_fps = 0.0
+        self.last_model_time = 0.0
+
+        # Output FPS tracking
+        self.output_fps_start_time = time.time()
+        self.output_fps_frame_count = 0
+        self.current_output_fps = 0.0
+
     def run(self):
         self.running = True
         self.logger.info(f"Starting camera {self.config.camera_id}")
@@ -67,6 +78,15 @@ class ImprovedCameraWorker(threading.Thread):
     def process_incoming_frame(self, frame: np.ndarray):
         """Xử lý frame (dùng cho cả luồng nội bộ và API bên ngoài)."""
         self.frame_count += 1
+
+        # Update input FPS calculation
+        self.fps_frame_count += 1
+        elapsed = time.time() - self.fps_start_time
+        if elapsed >= 1.0:
+            self.current_input_fps = self.fps_frame_count / elapsed
+            self.fps_start_time = time.time()
+            self.fps_frame_count = 0
+
         with self.latest_frame_lock:
             self.latest_frame = frame.copy()
         
@@ -102,10 +122,19 @@ class ImprovedCameraWorker(threading.Thread):
             return self.latest_frame.copy() if self.latest_frame is not None else None
 
     def get_processed_frame(self):
+        # Update output FPS calculation
+        self.output_fps_frame_count += 1
+        elapsed = time.time() - self.output_fps_start_time
+        if elapsed >= 1.0:
+            self.current_output_fps = self.output_fps_frame_count / elapsed
+            self.output_fps_start_time = time.time()
+            self.output_fps_frame_count = 0
+
         with self.processed_frame_lock:
             return self.processed_frame.copy() if self.processed_frame is not None else None
 
-    def process_detections(self, detections: List[Dict], frame: np.ndarray):
+    def process_detections(self, detections: List[Dict], frame: np.ndarray, model_time: float = 0.0):
+        self.last_model_time = model_time
         self.tracker.update_tracks(detections)
         self.tracker.draw_tracks(frame)
         result = DetectionResult(
@@ -124,6 +153,9 @@ class ImprovedCameraWorker(threading.Thread):
         stats['camera_id'] = self.config.camera_id
         stats['is_active'] = self.is_active
         stats['frame_count'] = self.frame_count
+        stats['input_fps'] = round(self.current_input_fps, 1)
+        stats['output_fps'] = round(self.current_output_fps, 1)
+        stats['model_time'] = round(self.last_model_time * 1000, 2)  # Convert to ms
         return stats
 
     def reset_tracker(self):
