@@ -1,0 +1,141 @@
+import threading
+import time
+import cv2
+import numpy as np
+import logging
+from typing import List, Dict
+from batchprocessor import BatchProcessor
+from PersonTracker import PersonTracker
+from DataClass import CameraConfig, DetectionResult
+from datetime import datetime
+
+
+class ImprovedCameraWorker(threading.Thread):
+    def __init__(self, config: CameraConfig, batch_processor: BatchProcessor):
+        super().__init__(daemon=True)
+        self.config = config
+        self.batch_processor = batch_processor
+        self.running = False
+        self.tracker = PersonTracker(config.camera_id, config)
+        self.logger = logging.getLogger(f"Camera-{config.camera_id}")
+        self.cap = None
+        self.frame_count = 0
+        self.latest_frame = None
+        self.latest_frame_lock = threading.Lock()
+        self.processed_frame = None
+        self.processed_frame_lock = threading.Lock()
+        self.is_active = True
+        self.is_video_file = isinstance(config.source, str) and not config.source.isdigit()
+
+    def run(self):
+        self.running = True
+        self.logger.info(f"Starting camera {self.config.camera_id}")
+        
+        # Nếu nguồn là API, luồng này chỉ đóng vai trò duy trì trạng thái
+        if self.config.source == "API":
+            self.logger.info(f"Camera {self.config.camera_id} is in API mode. Waiting for frames via POST.")
+            while self.running:
+                time.sleep(1)
+            self.cleanup()
+            return
+
+        while self.running:
+            if self.cap is None or not self.cap.isOpened():
+                self._open_video_source()
+                if not self.cap or not self.cap.isOpened():
+                    self.logger.error(f"Cannot open camera source: {self.config.source}. Retrying in 5s.")
+                    self.is_active = False
+                    time.sleep(5)
+                    continue
+            self.is_active = True
+            ret, frame = self.cap.read()
+            if not ret:
+                if self.is_video_file and self.config.loop_video:
+                    self.logger.info(f"Restarting video file for {self.config.camera_id}.")
+                    self.cap.release()
+                    self.cap = None
+                    continue
+                else:
+                    self.logger.info(f"End of video or stream error for {self.config.camera_id}.")
+                    self.is_active = False
+                    break
+            
+            self.process_incoming_frame(frame)
+            time.sleep(1 / 30)
+        self.cleanup()
+
+    def process_incoming_frame(self, frame: np.ndarray):
+        """Xử lý frame (dùng cho cả luồng nội bộ và API bên ngoài)."""
+        self.frame_count += 1
+        with self.latest_frame_lock:
+            self.latest_frame = frame.copy()
+        
+        metadata = {
+            'frame_id': self.frame_count,
+            'timestamp': time.time(),
+            'confidence_threshold': self.config.confidence_threshold,
+        }
+        self.batch_processor.add_frame(self.config.camera_id, frame, metadata)
+
+    def _open_video_source(self):
+        try:
+            source = self.config.source
+            if isinstance(source, str) and source.isdigit():
+                source = int(source)
+            self.cap = cv2.VideoCapture(source)
+            if self.cap.isOpened():
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.frame_height)
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.frame_width)
+                self.logger.info(
+                    f"Source {self.config.source} opened at "
+                    f"{self.cap.get(cv2.CAP_PROP_FRAME_WIDTH):.0f}x{self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT):.0f}"
+                )
+                fps = self.cap.get(cv2.CAP_PROP_FPS)
+                self.tracker.current_fps = max(fps, 1) if fps > 0 else 30
+                self.logger.info(f"FPS: {self.tracker.current_fps}")
+        except Exception as e:
+            self.logger.error(f"Error opening source {self.config.source}: {e}")
+            self.cap = None
+
+    def get_latest_frame(self):
+        with self.latest_frame_lock:
+            return self.latest_frame.copy() if self.latest_frame is not None else None
+
+    def get_processed_frame(self):
+        with self.processed_frame_lock:
+            return self.processed_frame.copy() if self.processed_frame is not None else None
+
+    def process_detections(self, detections: List[Dict], frame: np.ndarray):
+        self.tracker.update_tracks(detections)
+        self.tracker.draw_tracks(frame)
+        result = DetectionResult(
+            camera_id=self.config.camera_id,
+            frame_id=self.frame_count,
+            timestamp=time.time(),
+            detections=detections,
+            frame=frame,
+        )
+        with self.processed_frame_lock:
+            self.processed_frame = frame.copy()
+        return result
+
+    def get_statistics(self):
+        stats = self.tracker.get_statistics()
+        stats['camera_id'] = self.config.camera_id
+        stats['is_active'] = self.is_active
+        stats['frame_count'] = self.frame_count
+        return stats
+
+    def reset_tracker(self):
+        """Reset tracker và đếm lại từ đầu."""
+        self.tracker.reset()
+        self.frame_count = 0
+        self.logger.info(f"Camera {self.config.camera_id} tracker reset.")
+
+    def stop(self):
+        self.running = False
+
+    def cleanup(self):
+        if self.cap:
+            self.cap.release()
+        self.logger.info(f"Camera {self.config.camera_id} stopped.")
