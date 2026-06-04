@@ -2,7 +2,7 @@
   "cameras": [
     {
       "camera_id": "CAM001",
-      "source": "API",
+      "source": "demonext.mp4",
       "position": "Position_1",
       "enable_recording": true,
       "recording_path": "./recordings",

@@ -114,7 +114,7 @@ class BatchProcessor:
         detections = []
         for *xyxy, conf, cls in predictions:
             # Class 0 is 'person' in COCO dataset
-            if int(cls) == 0 and conf > confidence_threshold:
+            if int(cls) == 19 and conf > confidence_threshold:
                 x1, y1, x2, y2 = map(int, xyxy)
                 detections.append(
                     {'bbox': (x1, y1, x2, y2), 'center': ((x1 + x2) // 2, (y1 + y2) // 2), 'confidence': float(conf),
